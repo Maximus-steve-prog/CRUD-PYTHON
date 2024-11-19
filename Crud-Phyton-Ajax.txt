@@ -1,0 +1,650 @@
+CREATE TABLE Role (
+    IdRole INT AUTO_INCREMENT PRIMARY KEY,
+    LibRole VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE User (
+    Id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    image VARCHAR(255),
+    password VARCHAR(255) NOT NULL,
+    IdRole INT,
+    FOREIGN KEY (IdRole) REFERENCES Role(IdRole)
+);
+Step 1: Flask Application Setup
+Create a file named app.py:
+
+CopyReplit
+from flask import Flask, request, jsonify, render_template
+from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
+
+# Configuration
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://username:password@localhost/dbname'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+CORS(app)
+db = SQLAlchemy(app)
+
+# Models
+class Role(db.Model):
+    IdRole = db.Column(db.Integer, primary_key=True)
+    LibRole = db.Column(db.String(255), nullable=False)
+
+class User(db.Model):
+    Id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    email = db.Column(db.String(255), nullable=False)
+    image = db.Column(db.String(255))
+    password = db.Column(db.String(255), nullable=False)
+    IdRole = db.Column(db.Integer, db.ForeignKey('role.IdRole'))
+
+db.create_all()  # Creates the database tables
+
+# Routes
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+# CRUD Operations
+@app.route('/users', methods=['GET'])
+def get_users():
+    users = User.query.all()
+    return jsonify([{ 'Id': user.Id, 'name': user.name, 'email': user.email, 'image': user.image, 'IdRole': user.IdRole } for user in users])
+
+@app.route('/user', methods=['POST'])
+def add_user():
+    data = request.json
+    new_user = User(
+        name=data['name'],
+        email=data['email'],
+        image=data.get('image'),
+        password=data['password'],
+        IdRole=data['IdRole']
+    )
+    db.session.add(new_user)
+    db.session.commit()
+    return jsonify({'message': 'User created successfully'}), 201
+
+@app.route('/user/<int:user_id>', methods=['PUT'])
+def update_user(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+    
+    data = request.json
+    user.name = data['name']
+    user.email = data['email']
+    user.image = data.get('image')
+    user.password = data['password']
+    user.IdRole = data['IdRole']
+    db.session.commit()
+    return jsonify({'message': 'User updated successfully'})
+
+@app.route('/user/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+    
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({'message': 'User deleted successfully'})
+
+# Running the App
+if __name__ == '__main__':
+    app.run(debug=True)
+Step 2: HTML Template with AJAX
+Create a directory templates and create index.html inside it:
+
+CopyReplit
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Users Management</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h2>User Management</h2>
+    <div id="users-list"></div>
+
+    <h3>Add User</h3>
+    <form id="add-user-form">
+        <input type="text" id="name" placeholder="Name" required>
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="text" id="image" placeholder="Image URL">
+        <input type="password" id="password" placeholder="Password" required>
+        <select id="IdRole" required>
+            <option value="1">Admin</option>
+            <option value="2">User</option>
+        </select>
+        <button type="submit">Add User</button>
+    </form>
+
+    <script>
+        $(document).ready(function() {
+            loadUsers();
+
+            // Load users from the server
+            function loadUsers() {
+                $.get('/users', function(data) {
+                    let usersHtml = '<ul>';
+                    data.forEach(user => {
+                        usersHtml += `<li>${user.name} | ${user.email} <button onclick="deleteUser(${user.Id})">Delete</button></li>`;
+                    });
+                    usersHtml += '</ul>';
+                    $('#users-list').html(usersHtml);
+                });
+            }
+
+            // Add user
+            $('#add-user-form').on('submit', function(event) {
+                event.preventDefault();
+                const userData = {
+                    name: $('#name').val(),
+                    email: $('#email').val(),
+                    image: $('#image').val(),
+                    password: $('#password').val(),
+                    IdRole: $('#IdRole').val()
+                };
+
+                $.ajax({
+                    url: '/user',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(userData),
+                    success: function(response) {
+                        loadUsers();
+                        $('#add-user-form')[0].reset();
+                        alert(response.message);
+                    }
+                });
+            });
+        });
+
+        // Delete user
+        function deleteUser(userId) {
+            $.ajax({
+                url: `/user/${userId}`,
+                type: 'DELETE',
+                success: function(response) {
+                    loadUsers();
+                    alert(response.message);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+
+
+
+CREATE TABLE Role (
+    IdRole INT AUTO_INCREMENT PRIMARY KEY,
+    LibRole VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE User (
+    Id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    image VARCHAR(255),
+    password VARCHAR(255) NOT NULL,
+    IdRole INT,
+    FOREIGN KEY (IdRole) REFERENCES Role(IdRole)
+);
+Step 2: Create Models
+Create a models.py file:
+
+CopyReplit
+from flask_sqlalchemy import SQLAlchemy
+
+db = SQLAlchemy()
+
+class Role(db.Model):
+    IdRole = db.Column(db.Integer, primary_key=True)
+    LibRole = db.Column(db.String(255), nullable=False)
+
+class User(db.Model):
+    Id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    email = db.Column(db.String(255), unique=True, nullable=False)
+    image = db.Column(db.String(255))
+    password = db.Column(db.String(255), nullable=False)
+    IdRole = db.Column(db.Integer, db.ForeignKey('role.IdRole'))
+Step 3: Create Flask Application
+Create an app.py file:
+
+CopyReplit
+from flask import Flask
+from models import db
+from controllers.user_controller import user_blueprint
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://username:password@localhost/crud_app_db'
+app.config['UPLOAD_FOLDER'] = 'static/images'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db.init_app(app)
+
+with app.app_context():
+    db.create_all()
+
+app.register_blueprint(user_blueprint)
+
+if __name__ == '__main__':
+    app.run(debug=True)
+Step 4: Create the User Controller
+Create a controllers/user_controller.py file:
+
+CopyReplit
+from flask import Flask, Blueprint, request, jsonify, render_template
+from models import db, User, Role
+import os
+
+user_blueprint = Blueprint('user', __name__)
+
+@user_blueprint.route('/users', methods=['GET'])
+def get_users():
+    users = User.query.all()
+    return jsonify([{'id': user.Id, 'name': user.name, 'email': user.email, 'image': user.image, 'role': user.IdRole} for user in users])
+
+@user_blueprint.route('/users', methods=['POST'])
+def create_user():
+    if 'image' not in request.files:
+        return jsonify({"error": "No image provided"}), 400
+    image_file = request.files['image']
+    image_filename = image_file.filename
+    image_file.save(os.path.join('static/images', image_filename))
+    
+    new_user = User(
+        name=request.form['name'],
+        email=request.form['email'],
+        image=image_filename,
+        password=request.form['password'],  # Password should be hashed!
+        IdRole=request.form['role']
+    )
+    
+    db.session.add(new_user)
+    db.session.commit()
+    return jsonify({"message": "User created!"}), 201
+
+@user_blueprint.route('/users/<int:id>', methods=['PUT'])
+def update_user(id):
+    user = User.query.get(id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    user.name = request.form['name']
+    user.email = request.form['email']
+    user.IdRole = request.form['role']
+    
+    if 'image' in request.files:
+        image_file = request.files['image']
+        if image_file:
+            image_filename = image_file.filename
+            image_file.save(os.path.join('static/images', image_filename))
+            user.image = image_filename
+    
+    db.session.commit()
+    return jsonify({"message": "User updated!"})
+
+@user_blueprint.route('/users/<int:id>', methods=['DELETE'])
+def delete_user(id):
+    user = User.query.get(id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({"message": "User deleted!"})
+Step 5: Create HTML Template
+Create a simple HTML page to interact with the API. Create a new file in the templates folder called index.html:
+
+CopyReplit
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>User Management</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h1>User Management</h1>
+    <form id="userForm">
+        Name: <input type="text" name="name" required><br>
+        Email: <input type="email" name="email" required><br>
+        Password: <input type="password" name="password" required><br>
+        Roles: <input type="number" name="role"><br>
+        Image: <input type="file" name="image" required><br>
+        <button type="submit">Add User</button>
+    </form>
+    
+    <h2>Users</h2>
+    <div id="usersList"></div>
+    
+    <script>
+        $(document).ready(function() {
+            function loadUsers() {
+                $.get("/users", function(data) {
+                    $('#usersList').empty();
+                    data.forEach(function(user) {
+                        $('#usersList').append(`<div>${user.name} (${user.email}) <img src="static/images/${user.image}" style="width: 50px;"/></div>`);
+                    });
+                });
+            }
+            
+            loadUsers();
+            
+            $('#userForm').on('submit', function(e) {
+                e.preventDefault();
+                var formData = new FormData(this);
+                $.ajax({
+                    url: '/users',
+                    type: 'POST',
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    success: function(response) {
+                        alert(response.message);
+                        loadUsers();
+                    },
+                    error: function(xhr) {
+                        alert(xhr.responseJSON.error);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
+
+
+#############################################################################
+from flask import Flask, redirect, url_for, session
+from flask_dance.contrib.google import make_google_blueprint, google
+from flask_dance.contrib.facebook import make_facebook_blueprint, facebook
+from flask_dance.contrib.apple import make_apple_blueprint, apple
+from flask_dance.consumer import make_consent.
+
+app = Flask(__name__)
+app.secret_key = "your_secret_key"
+
+# Google configuration
+google_bp = make_google_blueprint(client_id="YOUR_GOOGLE_CLIENT_ID", 
+                                   client_secret="YOUR_GOOGLE_CLIENT_SECRET",
+                                   redirect_to="google_login")
+app.register_blueprint(google_bp, url_prefix="/google")
+
+# Facebook configuration
+facebook_bp = make_facebook_blueprint(app_id="YOUR_FACEBOOK_APP_ID",
+                                       app_secret="YOUR_FACEBOOK_APP_SECRET",
+                                       redirect_url="/facebook")
+app.register_blueprint(facebook_bp, url_prefix="/facebook")
+
+# Apple configuration
+apple_bp = make_apple_blueprint(client_id="YOUR_APPLE_CLIENT_ID",
+                                  team_id="YOUR_APPLE_TEAM_ID",
+                                  key_id="YOUR_APPLE_KEY_ID",
+                                  private_key="YOUR_APPLE_PRIVATE_KEY",
+                                  redirect_to="apple_login")
+app.register_blueprint(apple_bp, url_prefix="/apple")
+
+@app.route("/")
+def home():
+    return "Welcome! Please log in using Google, Facebook, or Apple."
+
+@app.route("/google_login")
+def google_login():
+    if not google.authorized:
+        return redirect(url_for("google.login"))
+    resp = google.get("/plus/v1/people/me")
+    assert resp.ok, resp.text
+    return f"Google says: {resp.json()['displayName']}"
+
+@app.route("/facebook_login")
+def facebook_login():
+    if not facebook.authorized:
+        return redirect(url_for("facebook.login"))
+    resp = facebook.get("/me")
+    assert resp.ok, resp.text
+    return f"Facebook says: {resp.json()['name']}"
+
+@app.route("/apple_login")
+def apple_login():
+    if not apple.authorized:
+        return redirect(url_for("apple.login"))
+    # Handle Apple ID response here
+    return "Logged in with Apple!"
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+
+
+    ######################## Orange Money Transaction ##############################
+
+    import requests
+import json
+from requests.auth import HTTPBasicAuth
+
+# Constants
+CLIENT_ID = 'your_client_id'
+CLIENT_SECRET = 'your_client_secret'
+BASE_URL = 'https://api.orange.com'
+ACCESS_TOKEN = None
+
+def get_access_token():
+    url = f'{BASE_URL}/oauth/v3/token'
+    headers = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+    }
+    payload = {
+        'grant_type': 'client_credentials',
+        'client_id': CLIENT_ID,
+        'client_secret': CLIENT_SECRET,
+    }
+    
+    response = requests.post(url, headers=headers, data=payload)
+    if response.status_code == 200:
+        token_info = response.json()
+        return token_info['access_token']
+    else:
+        print(f"Error getting access token: {response.content}")
+        return None
+
+def send_money(token, amount, sender_number, receiver_number):
+    url = f'{BASE_URL}/money/v1/send'
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json',
+    }
+    payload = {
+        "amount": amount,
+        "currency": "XOF",  # Adjust the currency as needed
+        "sender": sender_number,
+        "receiver": receiver_number,
+        "description": "Money transfer description",
+    }
+    
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    if response.status_code == 200:
+        print("Transaction successful.")
+        print(response.json())
+    else:
+        print(f"Error sending money: {response.content}")
+
+def main():
+    global ACCESS_TOKEN
+    ACCESS_TOKEN = get_access_token()
+    if ACCESS_TOKEN:
+        amount = 1000  # Amount to send
+        sender_number = "your_sender_number"  # Senders Orange Money number
+        receiver_number = "receiver_number"  # Receiver's Orange Money number
+        send_money(ACCESS_TOKEN, amount, sender_number, receiver_number)
+
+if __name__ == "__main__":
+    main()
+
+
+    Hospital management ###############################################
+    CREATE TABLE Patients (
+    patient_id INT PRIMARY KEY AUTO_INCREMENT,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    dob DATE,
+    gender ENUM('Male', 'Female', 'Other'),
+    contact_number VARCHAR(15),
+    email VARCHAR(100),
+    address TEXT,
+    emergency_contact VARCHAR(100),
+    insurance_provider VARCHAR(100),
+    insurance_policy_number VARCHAR(50)
+);
+
+CREATE TABLE Doctors (
+    doctor_id INT PRIMARY KEY AUTO_INCREMENT,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    specialization VARCHAR(100),
+    contact_number VARCHAR(15),
+    email VARCHAR(100),
+    department_id INT,
+    hospital_id INT,
+    FOREIGN KEY (department_id) REFERENCES Departments(department_id)
+);
+
+CREATE TABLE Departments (
+    department_id INT PRIMARY KEY AUTO_INCREMENT,
+    department_name VARCHAR(100),
+    head_doctor_id INT,
+    FOREIGN KEY (head_doctor_id) REFERENCES Doctors(doctor_id)
+);
+
+CREATE TABLE Appointments (
+    appointment_id INT PRIMARY KEY AUTO_INCREMENT,
+    patient_id INT,
+    doctor_id INT,
+    appointment_date DATE,
+    appointment_time TIME,
+    status ENUM('Scheduled', 'Completed', 'Cancelled'),
+    FOREIGN KEY (patient_id) REFERENCES Patients(patient_id),
+    FOREIGN KEY (doctor_id) REFERENCES Doctors(doctor_id)
+);
+
+CREATE TABLE MedicalRecords (
+    record_id INT PRIMARY KEY AUTO_INCREMENT,
+    patient_id INT,
+    doctor_id INT,
+    visit_date DATE,
+    diagnosis TEXT,
+    treatment TEXT,
+    prescription TEXT,
+    notes TEXT,
+    FOREIGN KEY (patient_id) REFERENCES Patients(patient_id),
+    FOREIGN KEY (doctor_id) REFERENCES Doctors(doctor_id)
+);
+
+CREATE TABLE Staff (
+    staff_id INT PRIMARY KEY AUTO_INCREMENT,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    role VARCHAR(50),
+    department_id INT,
+    contact_number VARCHAR(15),
+    email VARCHAR(100),
+    FOREIGN KEY (department_id) REFERENCES Departments(department_id)
+);
+
+CREATE TABLE Medications (
+    medication_id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100),
+    description TEXT,
+    dosage VARCHAR(100),
+    side_effects TEXT
+);
+
+CREATE TABLE Pharmacy (
+    pharmacy_id INT PRIMARY KEY AUTO_INCREMENT,
+    medication_id INT,
+    quantity_available INT,
+    price DECIMAL(10, 2),
+    FOREIGN KEY (medication_id) REFERENCES Medications(medication_id)
+);
+
+CREATE TABLE Billing (
+    billing_id INT PRIMARY KEY AUTO_INCREMENT,
+    patient_id INT,
+    appointment_id INT,
+    total_amount DECIMAL(10, 2),
+    amount_paid DECIMAL(10, 2),
+    payment_date DATE,
+    payment_method ENUM('Cash', 'Credit Card', 'Insurance'),
+    FOREIGN KEY (patient_id) REFERENCES Patients(patient_id),
+    FOREIGN KEY (appointment_id) REFERENCES Appointments(appointment_id)
+);
+
+
+
+################Entree /Sortie de stock ###################
+1. Tables Principales
+Table Produits
+id_produit (INT, PK) : Identifiant unique du produit
+nom (VARCHAR) : Nom du produit
+description (TEXT) : Description du produit
+quantite_en_stock (INT) : Quantité actuelle en stock
+prix_unitaire (DECIMAL) : Prix unitaire du produit
+seuil_alerte (INT) : Seuil de quantité pour alerter en cas de réapprovisionnement
+date_ajout (DATETIME) : Date d’ajout du produit
+Table Fournisseurs
+id_fournisseur (INT, PK) : Identifiant unique du fournisseur
+nom (VARCHAR) : Nom du fournisseur
+adresse (VARCHAR) : Adresse du fournisseur
+telephone (VARCHAR) : Numéro de téléphone du fournisseur
+email (VARCHAR) : Adresse email du fournisseur
+Table Clients
+id_client (INT, PK) : Identifiant unique du client
+nom (VARCHAR) : Nom du client
+adresse (VARCHAR) : Adresse du client
+telephone (VARCHAR) : Numéro de téléphone du client
+email (VARCHAR) : Adresse email du client
+Table Transactions
+id_transaction (INT, PK) : Identifiant unique de la transaction
+id_produit (INT, FK) : Identifiant du produit (référence à Produits)
+type_transaction (ENUM('entrée', 'sortie')) : Type de transaction
+quantite (INT) : Quantité de produit (entrée ou sortie)
+date_transaction (DATETIME) : Date de la transaction
+id_fournisseur (INT, FK) : Identifiant du fournisseur (pour les entrées)
+id_client (INT, FK) : Identifiant du client (pour les sorties)
+2. Relations
+La table Produits est liée à la table Transactions par id_produit.
+La table Fournisseurs est liée à Transactions pour les entrées de stock.
+La table Clients est liée à Transactions pour les sorties de stock.
+3. Exemple de requêtes
+Ajouter un produit :
+
+CopyReplit
+INSERT INTO Produits (nom, description, quantite_en_stock, prix_unitaire, seuil_alerte, date_ajout)
+VALUES ('Nom du produit', 'Description du produit', 10, 15.50, 5, NOW());
+Enregistrer une entrée de stock :
+
+CopyReplit
+INSERT INTO Transactions (id_produit, type_transaction, quantite, date_transaction, id_fournisseur)
+VALUES (1, 'entrée', 20, NOW(), 1);
+
+UPDATE Produits
+SET quantite_en_stock = quantite_en_stock + 20
+WHERE id_produit = 1;
+Enregistrer une sortie de stock :
+
+CopyReplit
+INSERT INTO Transactions (id_produit, type_transaction, quantite, date_transaction, id_client)
+VALUES (1, 'sortie', 5, NOW(), 1);
+
+UPDATE Produits
+SET quantite_en_stock = quantite_en_stock - 5
+WHERE id_produit = 1;

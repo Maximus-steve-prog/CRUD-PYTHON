@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>User Management</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+</head>
+<body>
+    <h1>User Management</h1>
+    <form id="userForm">
+        Name: <input type="text" name="name"  id='name' required><br>
+        Email: <input type="email" name="email" id='email' required><br>
+        Password: <input type="password" name="password" id='' required><br>
+        Roles: <input type="number" name="role" id='role'><br>
+        Image: <input type="file" name="image" id='image' required><br>
+        <button type="submit" id='submit'>SAVE</button>
+    </form>
+    
+    <h2>Users</h2>
+     <table>
+        <thead>
+            <th>Profile</th>
+            <th>Nom</th>
+            <th>Email</th>
+            <th>Password</th>
+            <th>Role</th>
+            <th>Action</th>
+        </thead>
+        <tbody id='usersList'>
+            
+        </tbody>
+     </table>
+    
+  
+
+    <script src="{{ url_for('static', filename='AJAXControllers/UserController.js') }}"></script>
+</body>
+</html>
